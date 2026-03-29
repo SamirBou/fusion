@@ -1,0 +1,45 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+
+# Virtual environments
+venv/
+env/
+ENV/
+.venv/
+
+# Logs
+logs/
+*.log
+
+# Development
+.env
+.vscode/
+.idea/
+*.sublime-*
+
+# OS
+.DS_Store
+Thumbs.db
+*.swp
+*~
+
+# Large binary files (download via scripts/fetch_missing.py --sprites-only)
+data/sprites/
+data/sources/
+migrate_sprites.py
+cleanup_bad_sprites.py
+_debug_page.html
+
+# AI tools
+.claude/
+.cursor/
+.copilot/
