@@ -18,10 +18,46 @@ app.index_string = """
         {%favicon%}
         {%css%}
         <style>
-            .dash-table-container img { width: 48px !important; height: 48px !important; object-fit: contain; }
-            .dash-table-container .dash-table-container .dash-table-cell { font-size: 12px; }
-            body { font-size: 13px; }
+            body { background: #E3F2FD; font-size: 13px; }
+            .dash-table-container img { width: 44px; height: 44px; object-fit: contain; }
+            /* Header hover darkening */
+            .dash-table-container th.dash-header:hover { background-color: #146c43 !important; }
+            /* Sort icon sizing */
+            .dash-table-container .column-header--sort { font-size: 10px; margin-left: 3px; vertical-align: middle; }
+            /* Hide ↕ (both-arrows) on unsorted columns; ↑ / ↓ on sorted columns stays visible */
+            .dash-table-container .column-header--sort .fa-sort,
+            .dash-table-container .column-header--sort svg[data-icon="sort"] { opacity: 0 !important; }
+            /* Show faintly on header hover so the user knows columns are sortable */
+            .dash-table-container th.dash-header:hover .column-header--sort .fa-sort,
+            .dash-table-container th.dash-header:hover .column-header--sort svg[data-icon="sort"] { opacity: 0.45 !important; }
         </style>
+        <script>
+        (function () {
+            /* Set loading="lazy" on every img before the browser initiates requests.
+               MutationObserver fires synchronously after React's DOM commit, which is
+               before the browser paint/load phase, so lazy is honoured for off-screen
+               images even though the attribute is set after insertion. */
+            function _lazy(img) {
+                if (!img.hasAttribute('loading')) img.setAttribute('loading', 'lazy');
+            }
+            function _lazyAll(root) {
+                root.querySelectorAll('img').forEach(_lazy);
+            }
+            var _mo = new MutationObserver(function (muts) {
+                muts.forEach(function (m) {
+                    m.addedNodes.forEach(function (n) {
+                        if (n.nodeType !== 1) return;
+                        if (n.tagName === 'IMG') _lazy(n);
+                        else _lazyAll(n);
+                    });
+                });
+            });
+            document.addEventListener('DOMContentLoaded', function () {
+                _lazyAll(document);
+                _mo.observe(document.body, { childList: true, subtree: true });
+            });
+        })();
+        </script>
     </head>
     <body>
         {%app_entry%}

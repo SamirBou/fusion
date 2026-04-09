@@ -1,5 +1,4 @@
 import logging
-import time
 import urllib.error
 import urllib.request
 from pathlib import Path
@@ -19,7 +18,18 @@ _REMOTE_SPRITE_BASES = (
 )
 _REMOTE_SPRITE_HEADERS = {"User-Agent": "fusion-dex-app/1.0"}
 _REMOTE_SPRITE_TIMEOUT = 8
-_SPRITE_URL_VERSION = str(int(time.time()))
+
+
+def _make_sprite_version() -> str:
+    """Stable version derived from the sprites directory mtime.
+    Only changes when sprites are actually added/removed, not on every restart."""
+    sprites_dir = get_repo_root() / "data" / "sprites"
+    try:
+        return str(int(sprites_dir.stat().st_mtime))
+    except OSError:
+        return "1"
+
+_SPRITE_URL_VERSION = _make_sprite_version()
 
 
 def _cached(response):

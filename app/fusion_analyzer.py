@@ -212,11 +212,26 @@ def _get_fusion_abilities(head_id: int, body_id: int) -> dict:
     }
 
 
-def _to_float(v) -> float:
-    try:
-        return float(v or 0)
-    except Exception:
-        return 0.0
+_STAT_ALIASES = {
+    "HP": ("HP", "hp"),
+    "ATK": ("ATK", "atk"),
+    "DEF": ("DEF", "def"),
+    "SP.ATK": ("SP.ATK", "sp_atk", "spatk"),
+    "SP.DEF": ("SP.DEF", "sp_def", "spdef"),
+    "SPEED": ("SPEED", "speed"),
+    "TOTAL": ("TOTAL", "Total", "total"),
+}
+
+
+def _stat(stats: dict, key: str) -> int:
+    for alias in _STAT_ALIASES.get(key, (key,)):
+        v = stats.get(alias)
+        if v is not None:
+            try:
+                return int(v)
+            except (TypeError, ValueError):
+                return 0
+    return 0
 
 
 def _normalize_types(entry: dict) -> list[str]:
@@ -275,38 +290,26 @@ def _get_weaknesses(entry: dict) -> dict[str, list[str]]:
 
 def _get_metric(entry: dict, metric: str) -> float:
     stats = entry.get("stats") or {}
+    hp = _stat(stats, "HP")
     if metric == "Total":
-        return _to_float(stats.get("TOTAL") or stats.get("Total") or stats.get("total"))
-    elif metric == "Mixed Bulk":
-        hp = _to_float(stats.get("HP"))
-        df = _to_float(stats.get("DEF"))
-        spd = _to_float(stats.get("SP.DEF") or stats.get("sp_def") or stats.get("spdef"))
-        return hp * (df + spd) / 200
-    elif metric == "Phys Bulk":
-        hp = _to_float(stats.get("HP"))
-        df = _to_float(stats.get("DEF"))
-        return hp * df / 100
-    elif metric == "Spec Bulk":
-        hp = _to_float(stats.get("HP"))
-        spd = _to_float(stats.get("SP.DEF") or stats.get("sp_def") or stats.get("spdef"))
-        return hp * spd / 100
-    elif metric == "Offense":
-        atk = _to_float(stats.get("ATK") or stats.get("atk"))
-        spatk = _to_float(stats.get("SP.ATK") or stats.get("sp_atk") or stats.get("spatk"))
-        return max(atk, spatk)
-    elif metric == "Type Score":
-        weak = _get_weaknesses(entry)
-        immunities = len(weak.get("x0") or [])
-        resists = len(weak.get("x1/2") or []) + len(weak.get("x1/4") or [])
-        w2 = len(weak.get("x2") or [])
-        w4 = len(weak.get("x4") or [])
-        return float(2 * immunities + resists - 2 * w2 - 4 * w4)
-    elif metric == "ATK":
-        return _to_float(stats.get("ATK") or stats.get("atk"))
-    elif metric == "SP.ATK":
-        return _to_float(stats.get("SP.ATK") or stats.get("sp_atk") or stats.get("spatk"))
-    elif metric == "SPEED":
-        return _to_float(stats.get("SPEED") or stats.get("speed"))
+        return float(_stat(stats, "TOTAL"))
+    if metric == "Mixed Bulk":
+        return hp * (_stat(stats, "DEF") + _stat(stats, "SP.DEF")) / 200
+    if metric == "Phys Bulk":
+        return hp * _stat(stats, "DEF") / 100
+    if metric == "Spec Bulk":
+        return hp * _stat(stats, "SP.DEF") / 100
+    if metric == "Offense":
+        return float(max(_stat(stats, "ATK"), _stat(stats, "SP.ATK")))
+    if metric == "Type Score":
+        w = _get_weaknesses(entry)
+        imm = len(w.get("x0") or [])
+        res = len(w.get("x1/2") or []) + len(w.get("x1/4") or [])
+        return float(2 * imm + res - 2 * len(w.get("x2") or []) - 4 * len(w.get("x4") or []))
+    if metric == "Composite":
+        return float(_stat(stats, "TOTAL")) + 20 * _get_metric(entry, "Type Score")
+    if metric in ("ATK", "SP.ATK", "SPEED"):
+        return float(_stat(stats, metric))
     return 0.0
 
 
@@ -341,54 +344,36 @@ def _sprite_url(a: int, b: int) -> str:
 
 
 def _map_to_ui(e, a, b):
-    ui = {}
-    ui["Fusion ID"] = f"#{a}.{b}"
-    ui["Local Sprite"] = _sprite_url(a, b)
-    ui["Name"] = e.get("name") or e.get("Name")
-    ui["Types"] = e.get("types") or e.get("Types")
     stats = e.get("stats") or {}
-    ui["Total"] = (
-        stats.get("TOTAL") or stats.get("Total") or stats.get("total") or e.get("Total")
-    )
-    ui["HP"] = stats.get("HP") or stats.get("hp")
-    ui["ATK"] = stats.get("ATK") or stats.get("atk")
-    ui["DEF"] = stats.get("DEF") or stats.get("def")
-    ui["SP.ATK"] = stats.get("SP.ATK") or stats.get("sp_atk") or stats.get("spatk")
-    ui["SP.DEF"] = stats.get("SP.DEF") or stats.get("sp_def") or stats.get("spdef")
-    ui["SPEED"] = stats.get("SPEED") or stats.get("speed")
-    try:
-        hp = int(stats.get("HP") or stats.get("hp") or 0)
-        df = int(stats.get("DEF") or stats.get("def") or 0)
-        spd = int(stats.get("SP.DEF") or stats.get("sp_def") or stats.get("spdef") or 0)
-        atk = int(stats.get("ATK") or stats.get("atk") or 0)
-        spatk = int(stats.get("SP.ATK") or stats.get("sp_atk") or stats.get("spatk") or 0)
-        ui["Phys Bulk"] = round(hp * df / 100, 1)
-        ui["Spec Bulk"] = round(hp * spd / 100, 1)
-        ui["Mixed Bulk"] = round(hp * (df + spd) / 200, 1)
-        ui["Offense"] = max(atk, spatk)
-    except Exception:
-        ui["Phys Bulk"] = None
-        ui["Spec Bulk"] = None
-        ui["Mixed Bulk"] = None
-        ui["Offense"] = None
+    hp    = _stat(stats, "HP")
+    atk   = _stat(stats, "ATK")
+    df    = _stat(stats, "DEF")
+    spatk = _stat(stats, "SP.ATK")
+    spdef = _stat(stats, "SP.DEF")
+    speed = _stat(stats, "SPEED")
+
     weak = _get_weaknesses(e)
     imm = weak.get("x0") or []
     res = list(weak.get("x1/2") or []) + list(weak.get("x1/4") or [])
-    w2 = weak.get("x2") or []
-    w4 = weak.get("x4") or []
-    ui["Immunities"] = imm
-    ui["Resists"] = res
-    ui["2x Weak"] = w2
-    ui["4x Weak"] = w4
-    ui["Type Score"] = 2 * len(imm) + len(res) - 2 * len(w2) - 4 * len(w4)
-    ab = _get_fusion_abilities(a, b)
-    ui["Ability 1"] = ab["Ability 1"]
-    ui["Ability 2"] = ab["Ability 2"]
-    ui["Hidden Ability"] = ab["Hidden Ability"]
-    ui["_ab1_desc"] = ab["_ab1_desc"]
-    ui["_ab2_desc"] = ab["_ab2_desc"]
-    ui["_abH_desc"] = ab["_abH_desc"]
-    return ui
+    w2  = weak.get("x2") or []
+    w4  = weak.get("x4") or []
+
+    return {
+        "Fusion ID": f"#{a}.{b}",
+        "Local Sprite": _sprite_url(a, b),
+        "Name": e.get("name") or e.get("Name"),
+        "Types": e.get("types") or e.get("Types"),
+        "Total": _stat(stats, "TOTAL"),
+        "HP": hp, "ATK": atk, "DEF": df,
+        "SP.ATK": spatk, "SP.DEF": spdef, "SPEED": speed,
+        "Phys Bulk": round(hp * df / 100, 1),
+        "Spec Bulk": round(hp * spdef / 100, 1),
+        "Mixed Bulk": round(hp * (df + spdef) / 200, 1),
+        "Offense": max(atk, spatk),
+        "Immunities": imm, "Resists": res, "2x Weak": w2, "4x Weak": w4,
+        "Type Score": 2 * len(imm) + len(res) - 2 * len(w2) - 4 * len(w4),
+        **_get_fusion_abilities(a, b),
+    }
 
 
 def analyze_fusions(pokemon_ids):

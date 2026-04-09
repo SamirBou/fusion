@@ -25,9 +25,9 @@ try:
     ):
         logger.addHandler(fh)
     logger.setLevel(logging.INFO)
-except Exception:
+except OSError:
     pass
-logging.getLogger().setLevel(logging.INFO)
+logger.setLevel(logging.INFO)
 
 from app import app, gen_ranges, grid_cache
 from app.pc import create_pokemon_sprite_grid as pc_create_pokemon_sprite_grid
@@ -46,11 +46,18 @@ app.layout = dbc.Container(
     [
         dbc.Row(
             dbc.Col(
-                html.H1(
-                    "Pokémon Fusion PC",
-                    className="text-center my-4",
-                    style={"color": "#2E86AB"},
-                )
+                [
+                    html.H1(
+                        "Pokémon Fusion PC",
+                        className="text-center my-2",
+                        style={"color": "#2E86AB"},
+                    ),
+                    html.P(
+                        "Infinite Fusion stat analyser & team builder",
+                        className="text-center text-muted mb-3",
+                        style={"fontSize": "14px"},
+                    ),
+                ]
             )
         ),
         dcc.Tabs(
@@ -206,6 +213,7 @@ app.layout = dbc.Container(
                                                 }
                                             ],
                                             sort_action="native",
+                                            sort_by=[{"column_id": "Total", "direction": "desc"}],
                                             style_table={
                                                 "overflowX": "auto",
                                                 "minWidth": "100%",
@@ -239,6 +247,7 @@ app.layout = dbc.Container(
                                         id="best-team-metric",
                                         options=[
                                             {"label": "Total Stats", "value": "Total"},
+                                            {"label": "Composite (Total + Typing)", "value": "Composite"},
                                             {"label": "Mixed Bulk", "value": "Mixed Bulk"},
                                             {"label": "Phys Bulk", "value": "Phys Bulk"},
                                             {"label": "Spec Bulk", "value": "Spec Bulk"},
@@ -309,6 +318,64 @@ app.layout = dbc.Container(
                                 )
                             ),
                             style={"overflowX": "auto", "width": "100%"},
+                        ),
+                    ],
+                ),
+                dcc.Tab(
+                    label="❓ How to Use",
+                    value="guide",
+                    children=[
+                        dbc.Row(
+                            dbc.Col(
+                                [
+                                    html.H5("How to use Pokémon Fusion PC", className="mb-3", style={"color": "#2E86AB"}),
+                                    dbc.Card([
+                                        dbc.CardHeader(html.Strong("1 — Browse & build your PC")),
+                                        dbc.CardBody([
+                                            html.P("Open the Browse Pokémon tab. Use the generation buttons or the search box to find Pokémon.", className="mb-1"),
+                                            html.P("Click any sprite to add it to your PC — it highlights blue. Click again to remove it. The strip above the grid always shows your current PC.", className="mb-1"),
+                                            html.P("You can add Pokémon from multiple generations to the same PC.", className="mb-0"),
+                                        ]),
+                                    ], className="mb-3"),
+                                    dbc.Card([
+                                        dbc.CardHeader(html.Strong("2 — Analyze fusions")),
+                                        dbc.CardBody([
+                                            html.P("Switch to the My PC tab and click Analyze Fusions. This computes every head→body combination for the Pokémon in your PC.", className="mb-1"),
+                                            html.P("Results appear in the Fusion Results tab as a sortable table. Click any column header to sort.", className="mb-1"),
+                                            html.P(["Click the sprite image in the Sprite column to open that fusion's page on ", html.A("Infinite Fusion Dex", href="https://infinitefusiondex.com", target="_blank", rel="noopener"), " in a new tab."], className="mb-0"),
+                                        ]),
+                                    ], className="mb-3"),
+                                    dbc.Card([
+                                        dbc.CardHeader(html.Strong("3 — Save fusions to your PC")),
+                                        dbc.CardBody([
+                                            html.P(["In the Fusion Results table, click the ", html.Strong("💾 button"), " on any row to save that fusion pair. The two base Pokémon are automatically removed and replaced with the fusion."], className="mb-0"),
+                                        ]),
+                                    ], className="mb-3"),
+                                    dbc.Card([
+                                        dbc.CardHeader(html.Strong("4 — Find the Best Team")),
+                                        dbc.CardBody([
+                                            html.P("Switch to the Best Team tab. Choose a metric from the dropdown:", className="mb-1"),
+                                            html.Ul([
+                                                html.Li([html.Strong("Total Stats"), " — raw base stat sum"]),
+                                                html.Li([html.Strong("Composite"), " — Total + 20×Type Score; rewards good typing alongside power (recommended)"]),
+                                                html.Li([html.Strong("Mixed / Phys / Spec Bulk"), " — tankiness metrics"]),
+                                                html.Li([html.Strong("Offense"), " — best of ATK vs SP.ATK"]),
+                                                html.Li([html.Strong("Type Score"), " — 2×immunities + resists − 2×(2× weak) − 4×(4× weak)"]),
+                                            ], className="mb-2"),
+                                            html.P("Click Find Best Team to run the bitmask DP algorithm over all your PC Pokémon (up to 20) and return the top 5 fusion team combinations.", className="mb-0"),
+                                        ]),
+                                    ], className="mb-3"),
+                                    dbc.Card([
+                                        dbc.CardHeader(html.Strong("5 — Export & import")),
+                                        dbc.CardBody([
+                                            html.P(["In the My PC tab, use ", html.Strong("Save PC"), " to download your PC as a JSON file. Reload it by dragging it back in or using the file input."], className="mb-0"),
+                                        ]),
+                                    ], className="mb-3"),
+                                ],
+                                lg=8,
+                                className="mx-auto",
+                            ),
+                            className="mt-3",
                         ),
                     ],
                 ),
@@ -573,7 +640,7 @@ def queue_analysis(n_clicks, box, metric):
             no_update,
         )
 
-    ts = datetime.utcnow().isoformat()
+    ts = datetime.now().isoformat()
     spinner = dbc.Spinner(size="sm", color="primary")
     return (
         {"requested_at": ts, "box": box or [], "n_clicks": n_clicks},
@@ -620,7 +687,7 @@ def queue_best_team(n_clicks, box, metric):
         )
     return (
         {
-            "requested_at": datetime.utcnow().isoformat(),
+            "requested_at": datetime.now().isoformat(),
             "box": box or [],
             "metric": metric or "Total",
             "option_count": 5,
@@ -1087,9 +1154,10 @@ if __name__ == "__main__":
     def _pre_cache_grids():
         try:
             from app.pc import create_pokemon_sprite_grid
-            cache_key = "all_"
-            if cache_key not in grid_cache:
-                grid_cache[cache_key] = create_pokemon_sprite_grid(search=None, gen="all")
+            # Pre-cache the default tab (gen1) so first render is instant.
+            gen1_key = "gen1_"
+            if gen1_key not in grid_cache:
+                grid_cache[gen1_key] = create_pokemon_sprite_grid(search=None, gen="gen1")
         except Exception as e:
             logger.warning(f"_pre_cache_grids failed: {e}")
 
