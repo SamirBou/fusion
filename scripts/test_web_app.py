@@ -5,12 +5,13 @@ Tests: PC management, type chart, stat calculations, fusion analysis, best team 
 
 import json
 import math
+import os
 import unittest
 from pathlib import Path
 
 ROOT = Path(__file__).parent.parent
 
-# ── Load real data ─────────────────────────────────────────────────────────────
+# -- Load real data -------------------------------------------------------------
 with open(ROOT / "data" / "fusion_pokemon_data.json") as f:
     POKEMON_DATA = json.load(f)
 
@@ -21,7 +22,7 @@ def load_fusion(head_id):
     with open(p) as f:
         return json.load(f)
 
-# ── Port of JS logic ──────────────────────────────────────────────────────────
+# -- Port of JS logic ----------------------------------------------------------
 
 TYPE_ORDER = ['NORMAL','FIRE','WATER','ELECTRIC','GRASS','ICE','FIGHTING',
   'POISON','GROUND','FLYING','PSYCHIC','BUG','ROCK','GHOST','DRAGON','DARK','STEEL','FAIRY']
@@ -173,7 +174,7 @@ def compute_best_teams(ids, fusion_cache, metric='Total', max_fusions=6, max_tea
 # PC state helpers (mirroring JS)
 def add_fusion_to_pc(pc, h, b):
     """
-    JS: addFusionToPC — removes head (h) and body (b) as base Pokémon,
+    JS: addFusionToPC - removes head (h) and body (b) as base Pokémon,
     removes any saved fusions that use h or b, then adds fusion_h_b.
     Matches main app handle_cell_click behaviour.
     """
@@ -193,7 +194,7 @@ def add_fusion_to_pc(pc, h, b):
 
 def filter_results_table(rows, pc):
     """
-    JS: filterResultsTable — keep only rows where both base Pokémon are
+    JS: filterResultsTable - keep only rows where both base Pokémon are
     still in PC and the fusion has not already been saved.
     Matches main app update_output box-store trigger behaviour.
     """
@@ -230,7 +231,7 @@ def get_base_ids(pc):
     return out
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
+# ===============================================================================
 class TestTypeChart(unittest.TestCase):
 
     def test_ghost_immune_to_normal(self):
@@ -252,7 +253,7 @@ class TestTypeChart(unittest.TestCase):
 
     def test_fire_water_4x(self):
         # Pure Water: Ground 2x, Electric 2x, Grass 2x
-        # Fire/Ground: Water is 2x (fire), Water is 2x (ground) → 4x
+        # Fire/Ground: Water is 2x (fire), Water is 2x (ground) -> 4x
         w = compute_weaknesses(['FIRE', 'GROUND'])
         self.assertIn('WATER', w['x4'])
 
@@ -434,7 +435,7 @@ class TestFusionAnalysis(unittest.TestCase):
                 if h == b: continue
                 entry = (self.cache[h] or {}).get(f'{h}.{b}')
                 if entry: rows.append(map_to_ui(entry, h, b))
-        # 3 Pokémon → 6 ordered pairs
+        # 3 Pokémon -> 6 ordered pairs
         self.assertEqual(len(rows), 6)
 
     def test_no_self_fusions_in_results(self):
@@ -591,7 +592,7 @@ class TestLargeAmounts(unittest.TestCase):
     def setUpClass(cls):
         cls.cache = {i: load_fusion(i) for i in cls.GEN1_20}
 
-    # ── Fusion analysis ─────────────────────────────────────────────────────
+    # -- Fusion analysis -----------------------------------------------------
 
     def _run_analysis(self, ids):
         rows = []
@@ -648,7 +649,7 @@ class TestLargeAmounts(unittest.TestCase):
             self.assertEqual(r['typeScore'], expected,
                 f"{r['_h']}.{r['_b']} type score wrong")
 
-    # ── Best team DP ────────────────────────────────────────────────────────
+    # -- Best team DP --------------------------------------------------------
 
     def test_best_team_10_pokemon(self):
         ids = self.GEN1_20[:10]
@@ -729,7 +730,7 @@ class TestLargeAmounts(unittest.TestCase):
         self.assertEqual(sorted(base), list(range(11, 21)))
 
 
-# ── Port of JS import/export logic ───────────────────────────────────────────
+# -- Port of JS import/export logic -------------------------------------------
 
 def export_pc(pc):
     """Mirrors JS savePC(): serialise PC to {pc: [...]} JSON bytes."""
@@ -840,7 +841,7 @@ class TestImportExport(unittest.TestCase):
 
 
 class TestFilterResultsTable(unittest.TestCase):
-    """Port of JS filterResultsTable — mirrors main app update_output box-store trigger."""
+    """Port of JS filterResultsTable - mirrors main app update_output box-store trigger."""
 
     def _make_row(self, h, b):
         return {'_h': h, '_b': b}
@@ -880,7 +881,7 @@ class TestFilterResultsTable(unittest.TestCase):
         self.assertEqual(filter_results_table([], [1, 6]), [])
 
     def test_save_fusion_then_filter_full_flow(self):
-        """Full flow: add 3 Pokémon → analyze → save one fusion → table filters."""
+        """Full flow: add 3 Pokémon -> analyze -> save one fusion -> table filters."""
         pc   = [1, 6, 25]
         rows = [
             self._make_row(1, 6), self._make_row(6, 1),
@@ -890,7 +891,7 @@ class TestFilterResultsTable(unittest.TestCase):
         # Save fusion_1_6: removes 1 and 6, keeps 25
         pc = add_fusion_to_pc(pc, 1, 6)
         out = filter_results_table(rows, pc)
-        # Only fusions involving 25 as both head and body base remain — none do
+        # Only fusions involving 25 as both head and body base remain - none do
         # since 1 and 6 are no longer base Pokémon
         for row in out:
             self.assertIn(row['_h'], get_base_ids(pc))
@@ -918,7 +919,7 @@ class TestBrowseSortOrder(unittest.TestCase):
     def test_national_id_sort_before_game_id_sort(self):
         # Treecko: game 276, national 252
         # Azurill: game 252, national 298
-        # National sort → Treecko first; game-ID sort → Azurill first
+        # National sort -> Treecko first; game-ID sort -> Azurill first
         ids = [252, 276]
         sorted_ids = sorted(ids, key=lambda i: national_id_sort_key(i, POKEMON_DATA))
         self.assertEqual(sorted_ids[0], 276, "Treecko (nat 252) should come before Azurill (nat 298)")
@@ -947,21 +948,21 @@ class TestBrowseSortOrder(unittest.TestCase):
             self.assertLessEqual(nats[j], nats[j+1])
 
     def test_wynaut_national_after_treecko(self):
-        # Wynaut: game 253, national 360 → must appear after all Gen3 starters
+        # Wynaut: game 253, national 360 -> must appear after all Gen3 starters
         treecko_nat = int(POKEMON_DATA['276']['national_id'])
         wynaut_nat  = int(POKEMON_DATA['253']['national_id'])
         self.assertLess(treecko_nat, wynaut_nat)
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
+# ===============================================================================
 # EDGE CASE / WEIRD SCENARIO TESTS
-# ═══════════════════════════════════════════════════════════════════════════════
+# ===============================================================================
 
 class TestWeirdPCScenarios(unittest.TestCase):
     """Unusual but possible PC states and operations."""
 
     def test_save_fusion_whose_reverse_is_already_saved(self):
-        # fusion_1_6 already in PC; now save fusion_6_1 — should remove fusion_1_6
+        # fusion_1_6 already in PC; now save fusion_6_1 - should remove fusion_1_6
         pc = [1, 6, 'fusion_1_6']
         # Saving 6_1: removes 6 (head) and 1 (body), removes fusion_1_6 (uses 1 and 6)
         pc = add_fusion_to_pc(pc, 6, 1)
@@ -998,7 +999,7 @@ class TestWeirdPCScenarios(unittest.TestCase):
         self.assertEqual(count, 1)
 
     def test_chain_save_fusions_consumes_all_pokemon(self):
-        # 4 Pokémon → save 2 fusions → PC has only 2 fusions left
+        # 4 Pokémon -> save 2 fusions -> PC has only 2 fusions left
         pc = [1, 6, 25, 9]
         pc = add_fusion_to_pc(pc, 1, 6)
         pc = add_fusion_to_pc(pc, 25, 9)
@@ -1092,14 +1093,14 @@ class TestWeirdPCScenarios(unittest.TestCase):
 class TestWeirdTypeScenarios(unittest.TestCase):
 
     def test_dual_type_with_both_immunities(self):
-        # Ghost/Normal: Ghost immune to Normal+Fighting, Normal immune to Ghost → x0 to Ghost
+        # Ghost/Normal: Ghost immune to Normal+Fighting, Normal immune to Ghost -> x0 to Ghost
         w = compute_weaknesses(['GHOST', 'NORMAL'])
         # Ghost is immune to Normal and Fighting; Normal cancels Ghost's Ghost immunity
         self.assertIn('NORMAL', w['x0'])
         self.assertIn('FIGHTING', w['x0'])
 
     def test_quad_resist(self):
-        # Steel/Fairy vs Poison: Steel 0x, Fairy 0.5x → 0x
+        # Steel/Fairy vs Poison: Steel 0x, Fairy 0.5x -> 0x
         w = compute_weaknesses(['STEEL', 'FAIRY'])
         self.assertIn('POISON', w['x0'])
 
@@ -1120,7 +1121,7 @@ class TestWeirdTypeScenarios(unittest.TestCase):
         self.assertGreaterEqual(total_res, 10)
 
     def test_empty_types_returns_empty_weaknesses(self):
-        # Empty typing means no types → takes neutral (x1) from everything
+        # Empty typing means no types -> takes neutral (x1) from everything
         w = compute_weaknesses([])
         all_types = ['NORMAL','FIRE','WATER','ELECTRIC','GRASS','ICE','FIGHTING',
                      'POISON','GROUND','FLYING','PSYCHIC','BUG','ROCK','GHOST',
@@ -1136,14 +1137,14 @@ class TestWeirdTypeScenarios(unittest.TestCase):
         w = compute_weaknesses(['NORMAL'])
         score = 2*len(w.get('x0',[])) + len(w.get('x1/2',[])) + len(w.get('x1/4',[])) \
               - 2*len(w.get('x2',[])) - 4*len(w.get('x4',[]))
-        # Normal has 2 immunities (Ghost) → at least +4 from Ghost alone... actually wait
+        # Normal has 2 immunities (Ghost) -> at least +4 from Ghost alone... actually wait
         # Ghost is immune to Normal. But we're computing weaknesses OF Normal type.
         # Normal is weak to nothing except Fighting(2x), resists nothing, immune to Ghost(0x)
         # score = 2*1 + 0 - 2*1 - 0 = 0
         self.assertGreaterEqual(score, -10)   # just must not crash
 
     def test_4x_weakness_dragon_flying(self):
-        # Dragon/Flying vs Ice: Dragon 2x, Flying 2x → 4x
+        # Dragon/Flying vs Ice: Dragon 2x, Flying 2x -> 4x
         w = compute_weaknesses(['DRAGON', 'FLYING'])
         self.assertIn('ICE', w['x4'])
 
@@ -1233,7 +1234,7 @@ class TestWeirdBestTeamScenarios(unittest.TestCase):
     def test_odd_number_of_pokemon_leaves_one_out(self):
         teams = compute_best_teams([1, 6, 25], self.cache, max_fusions=6, max_teams=1)
         self.assertGreater(len(teams), 0)
-        # 3 Pokémon → best team has 1 pair (one Pokémon sits out)
+        # 3 Pokémon -> best team has 1 pair (one Pokémon sits out)
         self.assertEqual(len(teams[0]['team']), 1)
 
     def test_max_fusions_1_returns_only_one_pair(self):
@@ -1283,11 +1284,13 @@ class TestWeirdBestTeamScenarios(unittest.TestCase):
         self.assertTrue(all_ids_used.issubset(set(range(1, 21))))
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# GUI TESTS — Playwright headless browser against the live GitHub Pages app
-# ═══════════════════════════════════════════════════════════════════════════════
+# ===============================================================================
+# GUI TESTS - Playwright headless browser against the live GitHub Pages app
+# ===============================================================================
 
-APP_URL = 'https://samirBou.github.io/fusion'
+# Override with FUSION_APP_URL to test a local build before deploying,
+# e.g. FUSION_APP_URL=http://localhost:8123 python scripts/test_web_app.py
+APP_URL = os.environ.get('FUSION_APP_URL', 'https://samirBou.github.io/fusion')
 GUI_TIMEOUT = 15_000   # ms per action
 
 def _launch():
@@ -1447,15 +1450,21 @@ class TestGUIPCAndAnalysis(unittest.TestCase):
         # Click the first Add button in results
         self.page.locator('#results-table .add-btn').first.click()
         self.page.wait_for_timeout(600)
-        # Switch to PC tab and check base Pokémon are gone
+        # Switch to PC tab: the two singles should now be a single fusion card
         self.page.locator('a.nav-link[href="#"]', has_text='My PC').click()
         self.page.wait_for_timeout(400)
+        cards = self.page.locator('#pc-box .pc-card').count()
+        self.assertEqual(cards, 1, 'expected the 2 singles to be replaced by 1 fusion card')
         pc_text = self.page.locator('#pc-box').inner_text()
-        # The fusion should be there
         self.assertIn('/', pc_text)   # fusion name contains /
+        # Check storage directly: no base entry left for either one
+        stored = self.page.evaluate("JSON.parse(sessionStorage.getItem('fusionPC'))")
+        base_entries = [x for x in stored if not (isinstance(x, str) and x.startswith('fusion_'))]
+        self.assertNotIn('1', [str(x) for x in base_entries])
+        self.assertNotIn('6', [str(x) for x in base_entries])
 
     def test_results_table_filters_after_save(self):
-        # After saving a fusion, go back to results — saved fusion should be gone from table
+        # After saving a fusion, go back to results - saved fusion should be gone from table
         self.page.locator('a.nav-link[href="#"]', has_text='Fusion Results').click()
         self.page.wait_for_timeout(400)
         rows_after = self.page.locator('#results-table tbody tr').count()
@@ -1507,7 +1516,7 @@ class TestGUIEdgeCases(unittest.TestCase):
         self.page.wait_for_timeout(400)
         status = self.page.locator('#best-team-status').inner_text()
         self.assertTrue(len(status) > 0)
-        # Clean up — navigate to Browse first, gen-tabs only visible there
+        # Clean up - navigate to Browse first, gen-tabs only visible there
         self.page.locator('a.nav-link[href="#"]', has_text='Browse Pokémon').click()
         self.page.wait_for_timeout(300)
         self.page.locator('#gen-tabs a[data-gen="1"]').click()
@@ -1559,7 +1568,7 @@ class TestGUIEdgeCases(unittest.TestCase):
         self.page.wait_for_timeout(200)
 
     def test_new_tab_has_empty_pc(self):
-        # sessionStorage is tab-local — new page should have empty PC
+        # sessionStorage is tab-local - new page should have empty PC
         page2 = self.ctx.new_page()
         page2.goto(APP_URL)
         page2.wait_for_selector('#sprite-grid .sprite-btn', timeout=30_000)
